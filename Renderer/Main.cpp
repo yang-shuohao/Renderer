@@ -100,7 +100,7 @@ void DrawLine5(glm::vec2 P0, glm::vec2 P1, COLORREF color)
 std::vector<float> Interpolate(float i0, float d0, float i1, float d1)
 {
 	std::vector<float> values;
-	if (glm::abs(i0 - i1)<=1e-6)
+	if (glm::abs(i0 - i1)<1e-6)
 	{
 		values.push_back(d0);
 		return values;
@@ -115,7 +115,7 @@ std::vector<float> Interpolate(float i0, float d0, float i1, float d1)
 	return values;
 }
 
-void DrawLine6(glm::vec2 P0, glm::vec2 P1, COLORREF color)
+void DrawLine(glm::vec2 P0, glm::vec2 P1, COLORREF color)
 {
 	if (glm::abs(P1.x-P0.x) > glm::abs(P1.y-P0.y))
 	{
@@ -144,12 +144,86 @@ void DrawLine6(glm::vec2 P0, glm::vec2 P1, COLORREF color)
 
 }
 
+void DrawWireframeTriangle(glm::vec2 P0, glm::vec2 P1, glm::vec2 P2, COLORREF color)
+{
+	DrawLine(P0, P1, color);
+	DrawLine(P1, P2, color);
+	DrawLine(P2, P0, color);
+}
+
+void DrawFilledTriangle(glm::vec2 P0, glm::vec2 P1, glm::vec2 P2, COLORREF color)
+{
+	//排序顶点 P0.y <= P1.y <= P2.y
+	if (P1.y < P0.y) { std::swap(P1, P0); }
+	if (P2.y < P0.y) { std::swap(P2, P0); }
+	if (P2.y < P1.y) { std::swap(P2, P1); }
+	              
+// 				   P2 |\
+// 	                  | \
+// 					  |  \ P1
+// 					  |  /
+// 					  | /
+// 				   P0 |/			  			   
+
+	//P0P1边x坐标数组
+	std::vector<float> x01 = Interpolate(P0.y, P0.x, P1.y, P1.x);
+	//P1P2边x坐标数组
+	std::vector<float> x12 = Interpolate(P1.y, P1.x, P2.y, P2.x);
+	//P0P2边x坐标数组
+	std::vector<float> x02 = Interpolate(P0.y, P0.x, P2.y, P2.x);
+
+	//【注意】去掉重复坐标，P0P1和P1P2重复了P1
+	//x01.pop_back();
+	//x012=x01+x12 x012代表P0P1和P1P2两条边的x坐标数组
+	x01.insert(x01.end(), x12.begin(), x12.end());
+	std::vector<float> x012(x01);
+
+	float m = glm::floor(x012.size() / 2);
+	std::vector<float> x_left;
+	std::vector<float> x_right;
+//	      第一种情况
+// 		  P2 |\
+// 	         | \
+// 			 |  \ P1
+// 			 |  /
+// 			 | /
+// 		  P0 |/		
+	if (x02[m] < x012[m])
+	{
+		x_left = x02;
+		x_right = x012;
+	}
+//	      第二种情况
+// 		    /| P2
+// 	       / | 
+// 	   p1 /  | 
+// 		  \	 |
+// 		   \ |
+// 		    \| P0	
+	else
+	{						
+		x_left = x012;					
+		x_right = x02;
+	}
+	//从左到右填充
+	for (int y = P0.y;y < P2.y;y++)
+	{
+		for (int x = x_left[y - P0.y];x < x_right[y - P0.y];x++)
+		{
+			putpixel(x, y, color);
+		}
+	}
+}
+
 int main()
 {
 	initgraph(640, 640);	// 创建绘图窗口，大小为 640x480 像素
 
-	DrawLine6(glm::vec2(100,100), glm::vec2(500,100), RED);
-	DrawLine6(glm::vec2(100, 100), glm::vec2(100, 500), GREEN);
+	glm::vec2 P0(200, 200);
+	glm::vec2 P1(200, 500);
+	glm::vec2 P2(350, 350);
+
+	DrawFilledTriangle(P0, P1, P2, RED);
 
 	_getch();				// 按任意键继续
 	closegraph();			// 关闭绘图窗口
