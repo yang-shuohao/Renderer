@@ -233,6 +233,7 @@ void DrawShadedTriangle(Vertex P0, Vertex P1, Vertex P2, COLORREF color)
 	}
 }
 
+
 int main()
 {
 	int ScreenWidth = 800;
@@ -250,65 +251,40 @@ int main()
 	v2.position = { 0.0f, 0.5f ,0.0f,1.0f };
 	v2.color = 0.0f;
 
-
-	ExMessage m;		// 定义消息变量
-
-	float radians = 0.0f;
-
-	while (true)
 	{
-		// 获取一条鼠标或按键消息
-		m = getmessage(EM_MOUSE | EM_KEY | EM_WINDOW);
+		glm::mat4 sm = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+		glm::mat4 rm = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0, 1, 0));
+		glm::mat4 tm = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 1));
+		//构造模型矩阵
+		glm::mat4 model = tm * rm * sm;
+		//构造视图矩阵
+		glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, 0, 1), glm::vec3(0, 1, 0));
+		//构造透视投影矩阵
+		glm::mat4 perspective = glm::perspective(glm::radians(90.0f), (float)ScreenWidth / (float)ScreenHeight, 0.1f, 100.0f);
+		//构造MVP矩阵
+		glm::mat4 mvp = perspective * view * model;
+		//对顶点进行MVP矩阵变换
+		v0.position = mvp * v0.position;
+		v1.position = mvp * v1.position;
+		v2.position = mvp * v2.position;
 
-		switch (m.message)
-		{
-		case WM_PAINT:
-			radians += 10.0f;
-			break;
+		//透视除法
+		float reciprocalW0 = 1 / v0.position.w;
+		float reciprocalW1 = 1 / v1.position.w;
+		float reciprocalW2 = 1 / v2.position.w;
 
-		case WM_LBUTTONDOWN:
-			radians += 10.0f;
-			break;
-
-		case WM_KEYDOWN:
-			if (m.vkcode == VK_ESCAPE)
-				return 0;	// 按 ESC 键退出程序
-		}
-		{
-			glm::mat4 sm = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-			glm::mat4 rm = glm::rotate(glm::mat4(1.0f), glm::radians(radians), glm::vec3(0, 1, 0));
-			glm::mat4 tm = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 1));
-			//构造模型矩阵
-			glm::mat4 model = tm * rm * sm;
-			//构造视图矩阵
-			glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, 0, 1), glm::vec3(0, 1, 0));
-			//构造透视投影矩阵
-			glm::mat4 perspective = glm::perspective(glm::radians(90.0f), (float)ScreenWidth / (float)ScreenHeight, 0.1f, 100.0f);
-			//构造MVP矩阵
-			glm::mat4 mvp = perspective * view * model;
-			//对顶点进行MVP矩阵变换
-			v0.position = mvp * v0.position;
-			v1.position = mvp * v1.position;
-			v2.position = mvp * v2.position;
-
-			//透视除法
-			float reciprocalW0 = 1 / v0.position.w;
-			float reciprocalW1 = 1 / v1.position.w;
-			float reciprocalW2 = 1 / v2.position.w;
-
-			//屏幕映射
-			v0.position.x = (v0.position.x * reciprocalW0 + 1.0f) * 0.5f * ScreenWidth;
-			v0.position.y = (1.0f - v0.position.y * reciprocalW0) * 0.5f * ScreenHeight;
-			v1.position.x = (v1.position.x * reciprocalW1 + 1.0f) * 0.5f * ScreenWidth;
-			v1.position.y = (1.0f - v1.position.y * reciprocalW1) * 0.5f * ScreenHeight;
-			v2.position.x = (v2.position.x * reciprocalW2 + 1.0f) * 0.5f * ScreenWidth;
-			v2.position.y = (1.0f - v2.position.y * reciprocalW2) * 0.5f * ScreenHeight;
-		}
-
-		DrawShadedTriangle(v0, v1, v2, RGB(255, 0, 0));
-
+		//屏幕映射
+		v0.position.x = (v0.position.x * reciprocalW0 + 1.0f) * 0.5f * ScreenWidth;
+		v0.position.y = (1.0f - v0.position.y * reciprocalW0) * 0.5f * ScreenHeight;
+		v1.position.x = (v1.position.x * reciprocalW1 + 1.0f) * 0.5f * ScreenWidth;
+		v1.position.y = (1.0f - v1.position.y * reciprocalW1) * 0.5f * ScreenHeight;
+		v2.position.x = (v2.position.x * reciprocalW2 + 1.0f) * 0.5f * ScreenWidth;
+		v2.position.y = (1.0f - v2.position.y * reciprocalW2) * 0.5f * ScreenHeight;
 	}
 
+	DrawShadedTriangle(v0, v1, v2, RGB(255, 0, 0));
+
+	_getch();
 	closegraph();			// 关闭绘图窗口
 	return 0;
 }
