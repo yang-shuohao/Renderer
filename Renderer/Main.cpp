@@ -9,6 +9,8 @@
 #include <iostream>
 #include <vector>
 
+#define ScreenWidth 800
+#define ScreenHeight 600
 
 //插值
 std::vector<float> Interpolate(float i0, float d0, float i1, float d1)
@@ -54,6 +56,7 @@ void DrawLine(glm::vec2 P0, glm::vec2 P1, COLORREF color)
 		for (int y = P0.y;y < P1.y;y++)
 		{
 			putpixel(xs[y - P0.y], y, color);
+			//Sleep(1);
 		}
 	}
 
@@ -129,6 +132,7 @@ void DrawFilledTriangle(glm::vec2 P0, glm::vec2 P1, glm::vec2 P2, COLORREF color
 		{
 			putpixel(x, y, color);
 		}
+		Sleep(1);
 	}
 }
 
@@ -137,6 +141,47 @@ struct Vertex
 	glm::vec4 position;
 	float color;
 };
+
+struct Triangle
+{
+	glm::vec3 index;
+	COLORREF color;
+};
+
+struct Model
+{
+	std::string name;
+	std::vector<Vertex> vertices;
+	std::vector<Triangle> triangles;
+};
+
+struct  Transform
+{
+	glm::vec3 translate;
+	glm::vec4 rotation;
+	glm::vec3 scale3D;
+};
+
+struct Instance
+{
+	Model model;
+	Transform transform;
+};
+
+struct Scene
+{
+	std::vector<Instance> instances;
+};
+
+glm::vec4 ApplyTransform(glm::vec4 pos, Transform transform)
+{
+	glm::mat4 sm = glm::scale(glm::mat4(1.0f), transform.scale3D);
+	glm::mat4 rm = glm::rotate(glm::mat4(1.0f), glm::radians(transform.rotation.z), glm::vec3(transform.rotation));
+	glm::mat4 tm = glm::translate(glm::mat4(1.0f), transform.translate);
+	//构造模型矩阵
+	glm::mat4 model = tm * rm * sm;
+	return model * pos;
+}
 
 //画着色三角形
 void DrawShadedTriangle(Vertex P0, Vertex P1, Vertex P2, COLORREF color)
@@ -233,56 +278,175 @@ void DrawShadedTriangle(Vertex P0, Vertex P1, Vertex P2, COLORREF color)
 	}
 }
 
+//渲染一个三角形
+void RenderTriangle(Triangle triangle, std::vector<Vertex> vertices)
+{
+	DrawFilledTriangle(vertices[triangle.index.x].position,
+		vertices[triangle.index.y].position,
+		vertices[triangle.index.z].position,
+		triangle.color);
+}
+
+//渲染一个物体
+void RenderObject(std::vector<Vertex> vertices, std::vector<Triangle> triangles)
+{
+	for (int i = 0; i < triangles.size(); i++)
+	{
+		RenderTriangle(triangles[i], vertices);
+	}
+}
+
+//渲染一个实例
+void RenderInstance(Instance instances)
+{
+	Model model = instances.model;
+	for (int i = 0;i < model.vertices.size();i++)
+	{
+		model.vertices[i].position = ApplyTransform(model.vertices[i].position, instances.transform);
+	}
+
+	for (int j = 0;j < model.triangles.size();j++)
+	{
+		RenderTriangle(model.triangles[j], model.vertices);
+	}
+}
+
+//渲染一个场景
+void RenderScene(Scene s)
+{
+	for (int i = 0; i < s.instances.size(); i++)
+	{
+		RenderInstance(s.instances[i]);
+	}
+}
+
+
+glm::mat4 GetModel(glm::vec3 s = { 1.0f, 1.0f, 1.0f }, glm::vec4 r = { 0,1,0,60.0f }, glm::vec3 t = { 0, 0, 5 })
+{
+	glm::mat4 sm = glm::scale(glm::mat4(1.0f), s);
+	glm::mat4 rm = glm::rotate(glm::mat4(1.0f), glm::radians(r.w), glm::vec3(r));
+	glm::mat4 tm = glm::translate(glm::mat4(1.0f), t);
+	//构造模型矩阵
+	return tm * rm * sm;
+}
+
+glm::mat4 GetView(glm::vec3 eye=glm::vec3(0,0,0),glm::vec3 center=glm::vec3(0,0,1),glm::vec3 up=glm::vec3(0,1,0))
+{
+	return glm::lookAt(eye, center, up);
+}
+
+glm::mat4 GetPerspective(float fov=glm::radians(90.0f),float aspect= ScreenWidth/ScreenHeight,float n=0.1f,float f=100.0f)
+{
+	return glm::perspective(fov, aspect, n, f);
+}
+
+glm::mat4 GetMVP(glm::mat4 model, glm::mat4 view, glm::mat4 perspective)
+{
+	return perspective * view * model;
+}
+
 
 int main()
 {
-	int ScreenWidth = 800;
-	int ScreenHeight = 600;
 
 	initgraph(ScreenWidth, ScreenHeight);	// 创建绘图窗口，大小为 640x480 像素
 
-	Vertex v0;
-	v0.position = { -0.5f, -0.5f ,0.0f,1.0f };
-	v0.color = 1.0f;
-	Vertex v1;
-	v1.position = { 0.5f, -0.5f,0.0f,1.0f };
-	v1.color = 0.5f;
-	Vertex v2;
-	v2.position = { 0.0f, 0.5f ,0.0f,1.0f };
-	v2.color = 0.0f;
+	std::vector<Vertex> Vertices;
+	Vertices.resize(8);
+	Vertices[0].position = { 1,1,1 ,1 };
+	Vertices[1].position = { -1,1,1,1 };
+	Vertices[2].position = { -1,-1,1 ,1 };
+	Vertices[3].position = { 1,-1,1 ,1 };
+	Vertices[4].position = { 1,1,-1 ,1 };
+	Vertices[5].position = { -1,1,-1 ,1 };
+	Vertices[6].position = { -1,-1,-1 ,1 };
+	Vertices[7].position = { 1,-1,-1 ,1 };
+
+	Vertices[0].color = 1.0f;
+	Vertices[1].color = 1.0f;
+	Vertices[2].color = 0.5f;
+	Vertices[3].color = 0.5f;
+	Vertices[4].color = 0.5f;
+	Vertices[5].color = 0.5f;
+	Vertices[6].color = 1.0f;
+	Vertices[7].color = 1.0f;
+
+	std::vector<Triangle> triangles;
+	triangles.resize(12);
+	triangles[0].index = { 0,1,2 };
+	triangles[0].color = RED;
+	triangles[1].index = { 0,2,3 };
+	triangles[1].color = RED;
+	triangles[2].index = { 4,0,3 };
+	triangles[2].color = GREEN;
+	triangles[3].index = { 4,3,7 };
+	triangles[3].color = GREEN;
+	triangles[4].index = { 5,4,7 };
+	triangles[4].color = BLUE;
+	triangles[5].index = { 5,7,6 };
+	triangles[5].color = BLUE;
+	triangles[6].index = { 1,5,6 };
+	triangles[6].color = YELLOW;
+	triangles[7].index = { 1,6,2 };
+	triangles[7].color = YELLOW;
+	triangles[8].index = { 4,5,1 };
+	triangles[8].color = WHITE;
+	triangles[9].index = { 4,1,0 };
+	triangles[9].color = WHITE;
+	triangles[10].index = { 2,6,7 };
+	triangles[10].color = CYAN;
+	triangles[11].index = { 2,7,3 };
+	triangles[11].color = CYAN;
 
 	{
-		glm::mat4 sm = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-		glm::mat4 rm = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0, 1, 0));
-		glm::mat4 tm = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 1));
 		//构造模型矩阵
-		glm::mat4 model = tm * rm * sm;
+		glm::mat4 model =GetModel();
 		//构造视图矩阵
-		glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 0), glm::vec3(0, 0, 1), glm::vec3(0, 1, 0));
+		glm::mat4 view = GetView();
 		//构造透视投影矩阵
-		glm::mat4 perspective = glm::perspective(glm::radians(90.0f), (float)ScreenWidth / (float)ScreenHeight, 0.1f, 100.0f);
+		glm::mat4 perspective =GetPerspective();
 		//构造MVP矩阵
-		glm::mat4 mvp = perspective * view * model;
-		//对顶点进行MVP矩阵变换
-		v0.position = mvp * v0.position;
-		v1.position = mvp * v1.position;
-		v2.position = mvp * v2.position;
+		glm::mat4 mvp = GetMVP(model,view,perspective);
 
-		//透视除法
-		float reciprocalW0 = 1 / v0.position.w;
-		float reciprocalW1 = 1 / v1.position.w;
-		float reciprocalW2 = 1 / v2.position.w;
+		for (int i = 0; i < Vertices.size(); i++)
+		{
+			//对顶点进行MVP矩阵变换
+			Vertices[i].position = mvp * Vertices[i].position;
 
-		//屏幕映射
-		v0.position.x = (v0.position.x * reciprocalW0 + 1.0f) * 0.5f * ScreenWidth;
-		v0.position.y = (1.0f - v0.position.y * reciprocalW0) * 0.5f * ScreenHeight;
-		v1.position.x = (v1.position.x * reciprocalW1 + 1.0f) * 0.5f * ScreenWidth;
-		v1.position.y = (1.0f - v1.position.y * reciprocalW1) * 0.5f * ScreenHeight;
-		v2.position.x = (v2.position.x * reciprocalW2 + 1.0f) * 0.5f * ScreenWidth;
-		v2.position.y = (1.0f - v2.position.y * reciprocalW2) * 0.5f * ScreenHeight;
+			//透视除法
+			float reciprocalW = 1 / Vertices[i].position.w;
+
+			//屏幕映射
+			Vertices[i].position.x = (Vertices[i].position.x * reciprocalW + 1.0f) * 0.5f * ScreenWidth;
+			Vertices[i].position.y = (1.0f - Vertices[i].position.y * reciprocalW) * 0.5f * ScreenHeight;
+
+		}
+
 	}
 
-	DrawShadedTriangle(v0, v1, v2, RGB(255, 0, 0));
+	Scene s;
+	Instance instance1;
+	instance1.model.name = "1";
+	instance1.model.vertices = Vertices;
+	instance1.model.triangles = triangles;
+	instance1.transform.translate = { 30,0,1 };
+	instance1.transform.rotation = { 0,1,0,0.0f };
+	instance1.transform.scale3D = { 1,1,1 };
+
+	Instance instance2;
+	instance2.model.name = "2";
+	instance2.model.vertices = Vertices;
+	instance2.model.triangles = triangles;
+	instance2.transform.translate = { -30,0,1 };
+	instance2.transform.rotation = { 0,1,0,-0.0f };
+	instance2.transform.scale3D = { 1,1,1 };
+
+
+	s.instances.push_back(instance1);
+	s.instances.push_back(instance2);
+
+
+	RenderScene(s);
 
 	_getch();
 	closegraph();			// 关闭绘图窗口
