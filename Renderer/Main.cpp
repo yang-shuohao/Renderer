@@ -205,10 +205,10 @@ void DrawFilledTriangle(Vertex P0, Vertex P1, Vertex P2, COLORREF color)
 	//´Ó×óµ½ÓÒÌî³ä
 	for (int y = P0.position.y;y < P2.position.y;y++)
 	{
-		float z = z_left[y - P0.position.y];
+		float z = 1/z_left[y - P0.position.y];
 		for (int x = x_left[y - P0.position.y];x < x_right[y - P0.position.y];x++)
 		{
-			if (z < DepthBuffer[x][y])
+			if (z > DepthBuffer[x][y])
 			{
 				putpixel(x, y, color);
 				DepthBuffer[x][y] = z;
@@ -406,7 +406,7 @@ int main()
 	{
 		for (int j = 0;j < ScreenHeight;j++)
 		{
-			DepthBuffer[i][j] = 100.0f;
+			DepthBuffer[i][j] = 0.0f;
 		}
 	}
 
@@ -488,7 +488,7 @@ int main()
 	instance1.model.name = "1";
 	instance1.model.vertices = Vertices;
 	instance1.model.triangles = triangles;
-	instance1.transform.translate = { 30,0,1 };
+	instance1.transform.translate = { 30,30,1 };
 	instance1.transform.rotation = { 0,1,0,60.0f };
 	instance1.transform.scale3D = { 1,1,1 };
 
@@ -496,7 +496,7 @@ int main()
 	instance2.model.name = "2";
 	instance2.model.vertices = Vertices;
 	instance2.model.triangles = triangles;
-	instance2.transform.translate = { -30,0,1 };
+	instance2.transform.translate = { -30,30,1 };
 	instance2.transform.rotation = { 0,1,0,60.0f };
 	instance2.transform.scale3D = { 1,1,1 };
 
