@@ -6,19 +6,50 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+//加载图像
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <iostream>
 #include <vector>
 
 #define ScreenWidth 800
 #define ScreenHeight 600
 
+int ImgaeWidth;
+int ImgaeHeight;
+int nrChannels;
+unsigned char* data;
+
 //深度缓存，保存z
 std::vector<std::vector<float>> DepthBuffer;
+
+// struct Light
+// {
+// 	COLORREF lightColor;
+// 	float lightStrength;
+// };
+// 
+// struct PointLight : Light
+// {
+// 	glm::vec3 lightPosition;
+// };
+// 
+// struct DirectionLight : Light
+// {
+// 	glm::vec3 lightDirection;
+// };
+// 
+// struct SpotLight : PointLight
+// {
+// 	glm::vec3 lightDirection;
+// };
 
 struct Vertex
 {
 	glm::vec4 position;
 	float color;
+	glm::vec2 uv;
 };
 
 struct Triangle
@@ -51,6 +82,28 @@ struct Scene
 {
 	std::vector<Instance> instances;
 };
+
+float GetTexel(unsigned char* texture, float tx, float ty)
+{
+	float fx = glm::fract(tx);
+	float fy = glm::fract(ty);
+	tx = glm::floor(tx);
+	ty = glm::floor(ty);
+
+	int itx = (int)tx;
+	int ity = (int)ty;
+
+	float TL = texture[itx * ImgaeWidth + ity];
+	float TR = texture[(itx + 1) * ImgaeWidth + ity];
+	float BL = texture[itx * ImgaeWidth + ity + 1];
+	float BR = texture[(itx + 1) * ImgaeWidth + ity + 1];
+
+	float CT = fx * TR + (1 - fx) * TL;
+	float CB = fx * BR + (1 - fx) * BL;
+
+	return fy * CB + (1 - fy) * CT;
+
+}
 
 //插值
 std::vector<float> Interpolate(float i0, float d0, float i1, float d1)
@@ -214,7 +267,7 @@ void DrawFilledTriangle(Vertex P0, Vertex P1, Vertex P2, COLORREF color)
 				DepthBuffer[x][y] = z;
 			}
 		}
-		Sleep(1);
+		//Sleep(1);
 	}
 }
 
@@ -323,6 +376,7 @@ void DrawShadedTriangle(Vertex P0, Vertex P1, Vertex P2, COLORREF color)
 	}
 }
 
+
 //渲染一个三角形
 void RenderTriangle(Triangle triangle, std::vector<Vertex> vertices)
 {
@@ -410,6 +464,8 @@ int main()
 		}
 	}
 
+	data = stbi_load("E:/Image/container.jpg", &ImgaeWidth, &ImgaeWidth, &nrChannels, 0);
+
 	std::vector<Vertex> Vertices;
 	Vertices.resize(8);
 	Vertices[0].position = { 1,1,1 ,1 };
@@ -429,6 +485,15 @@ int main()
 	Vertices[5].color = 0.5f;
 	Vertices[6].color = 1.0f;
 	Vertices[7].color = 1.0f;
+
+	Vertices[0].uv = {0,0};
+	Vertices[1].uv = {1,0};
+	Vertices[2].uv = {0,1};
+	Vertices[3].uv = {1,1};
+	Vertices[4].uv = {0,0};
+	Vertices[5].uv = {1,0};
+	Vertices[6].uv = {0,1};
+	Vertices[7].uv = {1,1};
 
 	std::vector<Triangle> triangles;
 	triangles.resize(12);

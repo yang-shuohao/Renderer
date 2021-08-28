@@ -12,3 +12,9 @@
 
 # 光栅化渲染器：坐标变换
 ![](https://img-blog.csdnimg.cn/eb3f05c5ded44c5da6c602c07101eb97.png)
+
+# 光栅化渲染器：渲染一个场景
+![](https://img-blog.csdnimg.cn/dd8477ced8734e86a006ca243a2167fd.gif#pic_center)
+
+# 光栅化渲染器：深度缓存
+![](https://img-blog.csdnimg.cn/c8d4985bf2f547ef91da65786f73853f.gif#pic_center)
