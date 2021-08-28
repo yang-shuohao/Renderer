@@ -12,6 +12,46 @@
 #define ScreenWidth 800
 #define ScreenHeight 600
 
+//深度缓存，保存z
+std::vector<std::vector<float>> DepthBuffer;
+
+struct Vertex
+{
+	glm::vec4 position;
+	float color;
+};
+
+struct Triangle
+{
+	glm::vec3 index;
+	COLORREF color;
+};
+
+struct Model
+{
+	std::string name;
+	std::vector<Vertex> vertices;
+	std::vector<Triangle> triangles;
+};
+
+struct  Transform
+{
+	glm::vec3 translate;
+	glm::vec4 rotation;
+	glm::vec3 scale3D;
+};
+
+struct Instance
+{
+	Model model;
+	Transform transform;
+};
+
+struct Scene
+{
+	std::vector<Instance> instances;
+};
+
 //插值
 std::vector<float> Interpolate(float i0, float d0, float i1, float d1)
 {
@@ -71,12 +111,12 @@ void DrawWireframeTriangle(glm::vec2 P0, glm::vec2 P1, glm::vec2 P2, COLORREF co
 }
 
 //画填充三角形
-void DrawFilledTriangle(glm::vec2 P0, glm::vec2 P1, glm::vec2 P2, COLORREF color)
+void DrawFilledTriangle(Vertex P0, Vertex P1, Vertex P2, COLORREF color)
 {
-	//排序顶点 P0.y <= P1.y <= P2.y
-	if (P1.y < P0.y) { std::swap(P1, P0); }
-	if (P2.y < P0.y) { std::swap(P2, P0); }
-	if (P2.y < P1.y) { std::swap(P2, P1); }
+	//排序顶点 P0.position.y <= P1.position.y <= P2.position.y
+	if (P1.position.y < P0.position.y) { std::swap(P1, P0); }
+	if (P2.position.y < P0.position.y) { std::swap(P2, P0); }
+	if (P2.position.y < P1.position.y) { std::swap(P2, P1); }
 
 	//------------------P2|\
 	//--------------------| \
@@ -85,12 +125,21 @@ void DrawFilledTriangle(glm::vec2 P0, glm::vec2 P1, glm::vec2 P2, COLORREF color
 	//--------------------| /
 	//------------------P0|/			  			   
 
-		//P0P1边x坐标数组
-	std::vector<float> x01 = Interpolate(P0.y, P0.x, P1.y, P1.x);
+	//P0P1边x坐标数组
+	std::vector<float> x01 = Interpolate(P0.position.y, P0.position.x, P1.position.y, P1.position.x);
+	//P0P1边z坐标数组
+	std::vector<float> z01 = Interpolate(P0.position.y, P0.position.z, P1.position.y, P1.position.z);
+
 	//P1P2边x坐标数组
-	std::vector<float> x12 = Interpolate(P1.y, P1.x, P2.y, P2.x);
+	std::vector<float> x12 = Interpolate(P1.position.y, P1.position.x, P2.position.y, P2.position.x);
+	//P1P2边z坐标数组
+	std::vector<float> z12 = Interpolate(P1.position.y, P1.position.z, P2.position.y, P2.position.z);
+
 	//P0P2边x坐标数组
-	std::vector<float> x02 = Interpolate(P0.y, P0.x, P2.y, P2.x);
+	std::vector<float> x02 = Interpolate(P0.position.y, P0.position.x, P2.position.y, P2.position.x);
+	//P0P2边z坐标数组
+	std::vector<float> z02 = Interpolate(P0.position.y, P0.position.z, P2.position.y, P2.position.z);
+
 
 	//【注意】去掉重复坐标，P0P1和P1P2重复了P1
 	//x01.pop_back();
@@ -98,9 +147,10 @@ void DrawFilledTriangle(glm::vec2 P0, glm::vec2 P1, glm::vec2 P2, COLORREF color
 	x01.insert(x01.end(), x12.begin(), x12.end());
 	std::vector<float> x012(x01);
 
-	float m = glm::floor(x012.size() / 2);
+	float mx = glm::floor(x012.size() / 2);
 	std::vector<float> x_left;
 	std::vector<float> x_right;
+
 	//-------第一种情况
 	//---------P2|\
 	//-----------| \
@@ -108,7 +158,7 @@ void DrawFilledTriangle(glm::vec2 P0, glm::vec2 P1, glm::vec2 P2, COLORREF color
 	//-----------|  /
 	//-----------| /
 	//---------P0|/		
-	if (x02[m] < x012[m])
+	if (x02[mx] < x012[mx])
 	{
 		x_left = x02;
 		x_right = x012;
@@ -125,53 +175,48 @@ void DrawFilledTriangle(glm::vec2 P0, glm::vec2 P1, glm::vec2 P2, COLORREF color
 		x_left = x012;
 		x_right = x02;
 	}
-	//从左到右填充
-	for (int y = P0.y;y < P2.y;y++)
+
+	z01.insert(z01.end(), z12.begin(), z12.end());
+	std::vector<float> z012(z01);
+
+	float mz = glm::floor(z012.size() / 2);
+	std::vector<float> z_left;
+	std::vector<float> z_right;
+
+	if (z02[mz] < z012[mz])
 	{
-		for (int x = x_left[y - P0.y];x < x_right[y - P0.y];x++)
+
+		z_left = z02;
+		z_right = z012;
+	}
+	//-------第二种情况
+	//----------/|P2
+	//---------/ | 
+	//------p1/  | 
+	//--------\	 |
+	//---------\ |
+	//----------\|P0		
+	else
+	{
+		z_left = z012;
+		z_right = z02;
+	}
+
+	//从左到右填充
+	for (int y = P0.position.y;y < P2.position.y;y++)
+	{
+		float z = z_left[y - P0.position.y];
+		for (int x = x_left[y - P0.position.y];x < x_right[y - P0.position.y];x++)
 		{
-			putpixel(x, y, color);
+			if (z < DepthBuffer[x][y])
+			{
+				putpixel(x, y, color);
+				DepthBuffer[x][y] = z;
+			}
 		}
 		Sleep(1);
 	}
 }
-
-struct Vertex
-{
-	glm::vec4 position;
-	float color;
-};
-
-struct Triangle
-{
-	glm::vec3 index;
-	COLORREF color;
-};
-
-struct Model
-{
-	std::string name;
-	std::vector<Vertex> vertices;
-	std::vector<Triangle> triangles;
-};
-
-struct  Transform
-{
-	glm::vec3 translate;
-	glm::vec4 rotation;
-	glm::vec3 scale3D;
-};
-
-struct Instance
-{
-	Model model;
-	Transform transform;
-};
-
-struct Scene
-{
-	std::vector<Instance> instances;
-};
 
 glm::vec4 ApplyTransform(glm::vec4 pos, Transform transform)
 {
@@ -281,9 +326,9 @@ void DrawShadedTriangle(Vertex P0, Vertex P1, Vertex P2, COLORREF color)
 //渲染一个三角形
 void RenderTriangle(Triangle triangle, std::vector<Vertex> vertices)
 {
-	DrawFilledTriangle(vertices[triangle.index.x].position,
-		vertices[triangle.index.y].position,
-		vertices[triangle.index.z].position,
+	DrawFilledTriangle(vertices[triangle.index.x],
+		vertices[triangle.index.y],
+		vertices[triangle.index.z],
 		triangle.color);
 }
 
@@ -321,7 +366,7 @@ void RenderScene(Scene s)
 }
 
 
-glm::mat4 GetModel(glm::vec3 s = { 1.0f, 1.0f, 1.0f }, glm::vec4 r = { 0,1,0,60.0f }, glm::vec3 t = { 0, 0, 5 })
+glm::mat4 GetModel(glm::vec3 s = { 1.0f, 1.0f, 1.0f }, glm::vec4 r = { 0,1,0,45.0f }, glm::vec3 t = { 0, 0, 5 })
 {
 	glm::mat4 sm = glm::scale(glm::mat4(1.0f), s);
 	glm::mat4 rm = glm::rotate(glm::mat4(1.0f), glm::radians(r.w), glm::vec3(r));
@@ -350,6 +395,20 @@ int main()
 {
 
 	initgraph(ScreenWidth, ScreenHeight);	// 创建绘图窗口，大小为 640x480 像素
+
+	DepthBuffer.resize(ScreenWidth);
+	for (int i=0;i<ScreenWidth;i++)
+	{
+		DepthBuffer[i].resize(ScreenHeight);
+	}
+
+	for (int i=0;i<ScreenWidth;i++)
+	{
+		for (int j = 0;j < ScreenHeight;j++)
+		{
+			DepthBuffer[i][j] = 100.0f;
+		}
+	}
 
 	std::vector<Vertex> Vertices;
 	Vertices.resize(8);
@@ -430,7 +489,7 @@ int main()
 	instance1.model.vertices = Vertices;
 	instance1.model.triangles = triangles;
 	instance1.transform.translate = { 30,0,1 };
-	instance1.transform.rotation = { 0,1,0,0.0f };
+	instance1.transform.rotation = { 0,1,0,60.0f };
 	instance1.transform.scale3D = { 1,1,1 };
 
 	Instance instance2;
@@ -438,7 +497,7 @@ int main()
 	instance2.model.vertices = Vertices;
 	instance2.model.triangles = triangles;
 	instance2.transform.translate = { -30,0,1 };
-	instance2.transform.rotation = { 0,1,0,-0.0f };
+	instance2.transform.rotation = { 0,1,0,60.0f };
 	instance2.transform.scale3D = { 1,1,1 };
 
 
